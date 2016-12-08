@@ -119,5 +119,93 @@ namespace Retry.NET
                 }
             }
         }
+
+
+        public static void RetryFor<TException>(Action action, TimeSpan duration, TimeSpan delay,
+           Func<TException, bool> shouldRetry = null, Action<TException> exceptionLogger = null)
+            where TException : Exception
+        {
+            Assert.NotNull(action, nameof(action));
+
+            bool shouldRetryNotNull = shouldRetry != null;
+            double durationTotalMs = duration.TotalMilliseconds;
+            DateTime startDateTime = DateTime.Now;
+
+            do
+            {
+                try
+                {
+                    action.Invoke();
+                    break;
+                }
+                catch (TException exception)
+                {
+                    if ((shouldRetryNotNull && !shouldRetry(exception)) ||
+                        (DateTime.Now - startDateTime).TotalMilliseconds > durationTotalMs)
+                    {
+                        throw;
+                    }
+
+                    exceptionLogger?.Invoke(exception);
+
+                    Task.Delay(delay).Wait();
+                }
+            } while (true);
+        }
+
+
+        public static void RetryFor<TException>(Action action, int totalMilliseconds, int millisecondsDelay,
+           Func<TException, bool> shouldRetry = null, Action<TException> exceptionLogger = null)
+            where TException : Exception
+        {
+            Assert.Positive(totalMilliseconds, nameof(totalMilliseconds));
+            Assert.Positive(totalMilliseconds, nameof(millisecondsDelay));
+
+            RetryFor(action, TimeSpan.FromMilliseconds(totalMilliseconds), TimeSpan.FromMilliseconds(millisecondsDelay),
+                shouldRetry, exceptionLogger);
+        }
+
+        public static async Task RetryForAsync<TException>(Func<Task> operation, TimeSpan duration, TimeSpan delay,
+           Func<TException, bool> shouldRetry = null, Action<TException> exceptionLogger = null)
+            where TException : Exception
+        {
+            Assert.NotNull(operation, nameof(operation));
+
+            bool shouldRetryNotNull = shouldRetry != null;
+            double durationTotalMs = duration.TotalMilliseconds;
+            DateTime startDateTime = DateTime.Now;
+
+            do
+            {
+                try
+                {
+                    await operation();
+                    break;
+                }
+                catch (TException exception)
+                {
+                    if ((shouldRetryNotNull && !shouldRetry(exception)) ||
+                        (DateTime.Now - startDateTime).TotalMilliseconds > durationTotalMs)
+                    {
+                        throw;
+                    }
+
+                    exceptionLogger?.Invoke(exception);
+
+                    await Task.Delay(delay);
+                }
+            } while (true);
+        }
+
+        public static async Task RetryForAsync<TException>(Func<Task> operation, int totalMilliseconds, int millisecondsDelay,
+           Func<TException, bool> shouldRetry = null, Action<TException> exceptionLogger = null)
+            where TException : Exception
+        {
+            Assert.Positive(totalMilliseconds, nameof(totalMilliseconds));
+            Assert.Positive(totalMilliseconds, nameof(millisecondsDelay));
+
+            await RetryForAsync(operation, TimeSpan.FromMilliseconds(totalMilliseconds), TimeSpan.FromMilliseconds(millisecondsDelay),
+                  shouldRetry, exceptionLogger);
+        }
     }
 }

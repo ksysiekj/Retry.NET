@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Retry.NET;
+using System;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Retry.Client
@@ -10,28 +12,26 @@ namespace Retry.Client
 
         static void Main()
         {
-            Test().Wait();
+            RetryHandler.RetryForAsync<HttpListenerException>(async () => await CalculateAsync(), 4500, 350).Wait();
 
             Console.Read();
         }
 
-        private static async Task Test()
-        {
-            int counter = 0;
-
-            await NET.RetryHandler.RetryAsync<HttpListenerException>(async () => { counter = await CalculateAsync(); }, 3, 200);
-        }
-
         private static int Calculate()
         {
+            Thread.Sleep(625);
             throw new HttpListenerException(two++);
         }
 
         private static async Task<int> CalculateAsync()
         {
+            Thread.Sleep(625);
+
             await Task.FromResult(3);
 
-            throw new HttpListenerException(two++);
+            return 3;
+
+            //throw new HttpListenerException(2);
         }
     }
 }
