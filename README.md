@@ -1,2 +1,2 @@
 # Retry.NET
-Simply retry mechanism for .NET
+Simple implementation of retry mechanism for .NET
