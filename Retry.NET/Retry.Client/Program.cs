@@ -1,7 +1,7 @@
 ﻿using Retry.NET;
 using System;
 using System.Net;
-using System.Threading;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Retry.Client
@@ -10,28 +10,76 @@ namespace Retry.Client
     {
         private static int two = 2;
 
+
         static void Main()
         {
-            RetryHandler.RetryForAsync<HttpListenerException>(async () => await CalculateAsync(), 4500, 350).Wait();
+            // cant use await here coz Main methos cannot be async so used Wait() method instead
+            RetryHandler.RetryForAsync<WebException>(async () =>
+             {
+                 string content = await DownloadContentAsync();
+
+                 Console.Write(content);
+
+             }, 60000, 500, httpRequestException => httpRequestException.Status == WebExceptionStatus.Timeout
+             || httpRequestException.Status == WebExceptionStatus.ConnectFailure).Wait();
+
+            // cant use await here coz Main methos cannot be async so used Wait() method instead
+            RetryHandler.RetryAsync<WebException>(async () =>
+           {
+               string content = await DownloadContentAsync();
+
+               Console.Write(content);
+
+           }, 5, 500, httpRequestException => httpRequestException.Status == WebExceptionStatus.Timeout
+           || httpRequestException.Status == WebExceptionStatus.ConnectFailure).Wait();
+
+
+            RetryHandler.Retry<WebException>(() =>
+           {
+               string content = DownloadContent();
+
+               Console.Write(content);
+
+           }, 6, 500, httpRequestException => httpRequestException.Status == WebExceptionStatus.Timeout
+           || httpRequestException.Status == WebExceptionStatus.ConnectFailure, Logger);
+
+
+            RetryHandler.RetryFor<WebException>(() =>
+            {
+                string content = DownloadContent();
+
+                Console.Write(content);
+
+            }, TimeSpan.FromSeconds(75), TimeSpan.FromSeconds(2), httpRequestException => httpRequestException.Status == WebExceptionStatus.Timeout
+            || httpRequestException.Status == WebExceptionStatus.ConnectFailure, Logger);
 
             Console.Read();
         }
 
-        private static int Calculate()
+        private static void Logger(Exception exception)
         {
-            Thread.Sleep(625);
-            throw new HttpListenerException(two++);
+            // _logger.Error(exception);
         }
 
-        private static async Task<int> CalculateAsync()
+        private static async Task<string> DownloadContentAsync()
         {
-            Thread.Sleep(625);
+            string page = "http://en.wikipedia.org/";
 
-            await Task.FromResult(3);
+            using (HttpClient client = new HttpClient())
+            using (HttpResponseMessage response = await client.GetAsync(page))
+            using (HttpContent content = response.Content)
+            {
+                return await content.ReadAsStringAsync();
+            }
+        }
 
-            return 3;
+        private static string DownloadContent()
+        {
+            string page = "http://en.wikipedia.org/";
 
-            //throw new HttpListenerException(2);
+            // do your stuff
+
+            return page;
         }
     }
 }
